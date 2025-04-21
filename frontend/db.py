@@ -26,7 +26,7 @@ def register_user(username, email, password):
     c = conn.cursor()
     try:
         c.execute("INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)", 
-                  (username, email, hash_password(password)))
+                (username, email, hash_password(password)))
         conn.commit()
         return True
     except sqlite3.IntegrityError:

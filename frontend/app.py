@@ -97,7 +97,7 @@ def tumor_prediction_ui():
                         result = response.json()
                         if result['confidence'] > 0.6:
                             st.success(f"Predicted Class: {result['predicted_class']}")
-                            st.write(f"Confidence: {result['confidence']:.2f}")
+                            st.write(f"Confidence: {result['confidence'] * 100 :.2f}%")
                         else:
                             st.warning(f"The model is not sure. Please consoult a doctor.")
                     else:

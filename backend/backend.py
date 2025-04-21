@@ -5,14 +5,18 @@ import numpy as np
 from pydantic import BaseModel
 import tensorflow as tf  
 import sqlite3
-import os
 from auth import send_otp, verify_otp
 
 app = FastAPI()
 
 # Load the pre-trained deep learning model
-MODEL_PATH = "model/64-4.h5"  
-model = tf.keras.models.load_model(MODEL_PATH)
+MODEL_PATH_2 = "../model/50-10-4.h5"  
+MODEL_PATH_1 = "../model/64-4.h5"  
+MODEL_PATH_3 = "../model/128-64-4.h5" 
+
+model1 = tf.keras.models.load_model(MODEL_PATH_1)
+model2 = tf.keras.models.load_model(MODEL_PATH_2)
+model3 = tf.keras.models.load_model(MODEL_PATH_3)
 
 # Define class labels
 CLASS_NAMES = ["Glioma", "Meningioma", "No Tumor", "pituitary"]
@@ -33,23 +37,37 @@ async def predict(file: UploadFile = File(...)):
         image = Image.open(BytesIO(image_bytes)).convert("L")
         # Preprocess image
         processed_image = preprocess_image(image)
+        
+        predictions = (
+            model1.predict(processed_image),
+            model2.predict(processed_image),
+            model3.predict(processed_image)
+        )
+        
+        print("Preds:", predictions)
 
-        # Perform prediction
-        predictions = model.predict(processed_image)
-        predicted_class = CLASS_NAMES[np.argmax(predictions)]  # Get highest probability class
-        confidence = float(np.max(predictions))  # Get confidence score
+        predictions = np.array(predictions)
+        final_prediction = np.mean(predictions, axis=0)
 
+        print("Final:", final_prediction)
+        
+        predicted_class = CLASS_NAMES[np.argmax(final_prediction)]  # Get highest probability class
+        confidence = np.max(final_prediction)  # Get confidence score
+        
+        print(predicted_class)
+        print(confidence)
+        
         return {
             "filename": file.filename,
             "predicted_class": predicted_class,
-            "confidence": confidence
+            "confidence": float(confidence)
         }
     
     except Exception as e:
         return {"error": str(e)}
 
 def get_email_by_username(username):
-    conn = sqlite3.connect('frontend/users.db')
+    conn = sqlite3.connect('../frontend/users.db')
     cursor = conn.cursor()
     cursor.execute("SELECT email FROM users WHERE username=?", (username,))
     result = cursor.fetchone()
