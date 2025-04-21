@@ -16,12 +16,15 @@ create_users_table()
 def main():
     st.title("Brain Tumor Classification")
     
+    # Initialize session states if they don't exist
     if "signup" not in st.session_state:
         st.session_state.signup = False
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
     if "otp_sent" not in st.session_state:
         st.session_state.otp_sent = False
+    if "username" not in st.session_state:
+        st.session_state.username = None
 
     if st.session_state.authenticated:
         tumor_prediction_ui()
@@ -65,7 +68,7 @@ def login_page():
         st.session_state.signup = True
         st.rerun()
 
-    if st.session_state.otp_sent:
+    if st.session_state.otp_sent and st.session_state.username:
         otp = st.text_input("Enter the OTP sent to your email", type="password")
         if st.button("Verify OTP"):
             response = requests.post(OTP_VERIFY_URL, json={"username": st.session_state.username, "otp": otp})
@@ -82,7 +85,7 @@ def tumor_prediction_ui():
     
     if uploaded_file is not None:
         image = Image.open(uploaded_file).convert("L")
-        st.image(image, caption="Uploaded Image", use_container_width=True)
+        st.image(image, caption="Uploaded Image", width=500)
         
         # Convert image to bytes
         img_byte_arr = io.BytesIO()
@@ -105,7 +108,11 @@ def tumor_prediction_ui():
                 except Exception as e:
                     st.error(f"Error: {e}")
     if st.button("Logout"):
+        # Clear all session states
         st.session_state.authenticated = False
+        st.session_state.signup = False
+        st.session_state.otp_sent = False
+        st.session_state.username = None
         st.rerun()
 
 if __name__ == "__main__":

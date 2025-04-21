@@ -5,14 +5,15 @@ import numpy as np
 from pydantic import BaseModel
 import tensorflow as tf  
 import sqlite3
-from auth import send_otp, verify_otp
+import os
+from backend.auth import send_otp, verify_otp
 
 app = FastAPI()
 
 # Load the pre-trained deep learning model
-MODEL_PATH_2 = "../model/50-10-4.h5"  
-MODEL_PATH_1 = "../model/64-4.h5"  
-MODEL_PATH_3 = "../model/128-64-4.h5" 
+MODEL_PATH_2 = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "50-10-4.h5")
+MODEL_PATH_1 = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "64-4.h5")
+MODEL_PATH_3 = os.path.join(os.path.dirname(os.path.dirname(__file__)), "model", "128-64-4.h5")
 
 model1 = tf.keras.models.load_model(MODEL_PATH_1)
 model2 = tf.keras.models.load_model(MODEL_PATH_2)
@@ -67,7 +68,8 @@ async def predict(file: UploadFile = File(...)):
         return {"error": str(e)}
 
 def get_email_by_username(username):
-    conn = sqlite3.connect('../frontend/users.db')
+    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "users.db")
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("SELECT email FROM users WHERE username=?", (username,))
     result = cursor.fetchone()
