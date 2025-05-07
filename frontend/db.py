@@ -1,6 +1,8 @@
 import sqlite3
 import hashlib
 
+import pyotp
+
 # Function to create the users table
 def create_users_table():
     conn = sqlite3.connect("users.db")
@@ -10,7 +12,8 @@ def create_users_table():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE NOT NULL,
             email TEXT NOT NULL,
-            password_hash TEXT NOT NULL
+            password_hash TEXT NOT NULL,
+            otp_secret TEXT NOT NULL
         )
     """)
     conn.commit()
@@ -24,9 +27,10 @@ def hash_password(password):
 def register_user(username, email, password):
     conn = sqlite3.connect("users.db")
     c = conn.cursor()
+    otp_secret = pyotp.random_base32()  # Generate TOTP secret here
     try:
-        c.execute("INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)", 
-                (username, email, hash_password(password)))
+        c.execute("INSERT INTO users (username, email, password_hash, otp_secret) VALUES (?, ?, ?, ?)", 
+                (username, email, hash_password(password), otp_secret))
         conn.commit()
         return True
     except sqlite3.IntegrityError:

@@ -1,12 +1,13 @@
+import os
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from io import BytesIO
 from PIL import Image
+from fastapi.responses import JSONResponse
 import numpy as np
 from pydantic import BaseModel
 import tensorflow as tf  
 import sqlite3
-import os
-from backend.auth import send_otp, verify_otp
+from auth import generate_otp_uri, verify_otp
 
 app = FastAPI()
 
@@ -67,11 +68,20 @@ async def predict(file: UploadFile = File(...)):
     except Exception as e:
         return {"error": str(e)}
 
-def get_email_by_username(username):
-    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "users.db")
+db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "users.db")
+
+def get_user_by_username(username):
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT email FROM users WHERE username=?", (username,))
+    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
+
+def get_user_secret(username):
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT otp_secret FROM users WHERE username=?", (username,))
     result = cursor.fetchone()
     conn.close()
     return result[0] if result else None
@@ -84,26 +94,28 @@ class OTPVerify(BaseModel):
     username: str
     otp: str
 
-# Endpoint to request OTP
-@app.post("/request-otp/")
-def request_otp(data: OTPRequest):
-    email = get_email_by_username(data.username)
-    if not email:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    if send_otp(email):
-        return {"message": "OTP sent successfully"}
-    else:
-        raise HTTPException(status_code=500, detail="Error sending OTP")
-
 # Endpoint to verify OTP
 @app.post("/verify-otp/")
 def verify_otp_endpoint(data: OTPVerify):
-    email = get_email_by_username(data.username)
-    if not email:
+    user = get_user_by_username(data.username)
+    if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if verify_otp(email, data.otp):
+    if verify_otp(data.username, data.otp):
         return {"message": "OTP verified successfully"}
     else:
         raise HTTPException(status_code=400, detail="Invalid OTP")
+
+# Endpoint to request OTP setup (returns QR code URI)
+@app.post("/request-otp/")
+def request_otp(data: OTPRequest):
+    user = get_user_by_username(data.username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    secret = get_user_secret(data.username)
+    otp_uri = generate_otp_uri(data.username, secret)
+    
+    return JSONResponse(content={"otp_uri": otp_uri})
+
+

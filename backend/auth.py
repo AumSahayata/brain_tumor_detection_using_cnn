@@ -1,39 +1,41 @@
-import random
-import smtplib
-from email.mime.text import MIMEText
+import pyotp
+import sqlite3
+import os
 
-otp_storage = {}
+# Get the path to the SQLite database
+def get_db_path():
+    return os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "users.db")
 
-# Generate a 6-digit OTP
-def generate_otp():
-    return str(random.randint(100000, 999999))
+# Generate a new TOTP secret and store it
+def generate_and_store_secret(username):
+    secret = pyotp.random_base32()
+    db_path = get_db_path
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET otp_secret=? WHERE username=?", (secret, username))
+    conn.commit()
+    conn.close()
+    return secret
 
-# Send OTP via email
-def send_otp(email):
-    otp = generate_otp()
-    otp_storage[email] = otp  # Store OTP (expires after validation)
-    
-    sender_email = "opt.chatbot@gmail.com"
-    sender_password = "yqttzxhfcxzlrxfd"
+# Retrieve stored secret
+def get_user_secret(username):
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT otp_secret FROM users WHERE username=?", (username,))
+    result = cursor.fetchone()
+    conn.close()
+    return result[0] if result else None
 
-    msg = MIMEText(f"Your verification code is: {otp}")
-    msg["Subject"] = "Your 2FA Code"
-    msg["From"] = sender_email
-    msg["To"] = email
+# Generate otpauth:// URI for QR code (for Google Authenticator)
+def generate_otp_uri(username, secret):
+    totp = pyotp.TOTP(secret)
+    return totp.provisioning_uri(name=username, issuer_name="IBM Project")
 
-    try:
-        server = smtplib.SMTP_SSL("smtp.gmail.com", 465)
-        server.login(sender_email, sender_password)
-        server.sendmail(sender_email, email, msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
+# Verify TOTP code
+def verify_otp(username, user_otp):
+    secret = get_user_secret(username)
+    if not secret:
         return False
-
-# Validate OTP
-def verify_otp(email, user_otp):
-    if email in otp_storage and otp_storage[email] == user_otp:
-        del otp_storage[email]  
-        return True
-    return False
+    totp = pyotp.TOTP(secret)
+    return totp.verify(user_otp)
