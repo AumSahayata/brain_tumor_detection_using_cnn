@@ -7,7 +7,7 @@ import numpy as np
 from pydantic import BaseModel
 import tensorflow as tf  
 import sqlite3
-from auth import generate_otp_uri, verify_otp
+from backend.auth import generate_otp_uri, verify_otp
 
 app = FastAPI()
 
